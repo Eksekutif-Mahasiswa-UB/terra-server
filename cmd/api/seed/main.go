@@ -31,7 +31,7 @@ func main() {
 
 	// Seed Admin User
 	log.Println("Seeding admin user...")
-	if err := seedAdminUser(authRepo); err != nil {
+	if err := seedAdminUser(authRepo, *config.AppConfig); err != nil {
 		log.Printf("Failed to seed admin user: %v", err)
 	} else {
 		log.Println("✓ Admin user seeded successfully")
@@ -49,9 +49,9 @@ func main() {
 }
 
 // seedAdminUser creates a dummy admin user
-func seedAdminUser(authRepo repository.AuthRepository) error {
-	// Hash password
-	hashedPassword, err := hash.HashPassword("password123")
+func seedAdminUser(authRepo repository.AuthRepository, cfg config.Config) error {
+	// Hash password from config
+	hashedPassword, err := hash.HashPassword(cfg.SEEDER_ADMIN_PASS)
 	if err != nil {
 		return err
 	}
