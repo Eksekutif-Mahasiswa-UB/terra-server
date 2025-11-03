@@ -240,6 +240,113 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	})
 }
 
+// RefreshToken handles the refresh token endpoint to get a new access token
+// @Summary Refresh access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.RefreshTokenRequest true "Refresh Token Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/auth/refresh [post]
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var request dto.RefreshTokenRequest
+
+	// Bind JSON request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Validate token is not empty
+	if strings.TrimSpace(request.Token) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Refresh token cannot be empty",
+		})
+		return
+	}
+
+	// Call service to refresh token
+	response, err := h.authService.RefreshToken(request)
+	if err != nil {
+		// Handle different error types
+		statusCode := http.StatusUnauthorized
+
+		// Token validation errors - return 401 Unauthorized
+		if err.Error() == "invalid or expired token" ||
+			err.Error() == "invalid token: not a refresh token" ||
+			err.Error() == "token is invalid or has been revoked" ||
+			err.Error() == "refresh token has expired" {
+			statusCode = http.StatusUnauthorized
+		} else {
+			statusCode = http.StatusInternalServerError
+		}
+
+		c.JSON(statusCode, gin.H{
+			"error":   "Token refresh failed",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Return success response with new access token
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Token refreshed successfully",
+		"data":    response,
+	})
+}
+
+// Logout handles the logout endpoint by invalidating the refresh token
+// @Summary Logout user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.RefreshTokenRequest true "Refresh Token Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/v1/auth/logout [post]
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var request dto.RefreshTokenRequest
+
+	// Bind JSON request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Validate token is not empty
+	if strings.TrimSpace(request.Token) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Refresh token cannot be empty",
+		})
+		return
+	}
+
+	// Call service to logout
+	err := h.authService.Logout(request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Logout failed",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logged out successfully",
+	})
+}
+
 // ResetPassword handles the reset password endpoint
 // @Summary Reset password using token
 // @Tags auth

@@ -14,6 +14,8 @@ type AuthRepository interface {
 	GetUserByEmail(email string) (*entity.User, error)
 	GetUserByID(id string) (*entity.User, error)
 	CreateRefreshToken(token *entity.RefreshToken) error
+	GetRefreshTokenByToken(token string) (*entity.RefreshToken, error)
+	DeleteRefreshToken(token string) error
 	UpdateUserPassword(email, newHashedPassword string) error
 }
 
@@ -73,6 +75,27 @@ func (r *authRepository) CreateRefreshToken(token *entity.RefreshToken) error {
 			  VALUES (:id, :user_id, :token, :expires_at, :created_at)`
 
 	_, err := r.db.NamedExec(query, token)
+	return err
+}
+
+// GetRefreshTokenByToken retrieves a refresh token by its token string
+func (r *authRepository) GetRefreshTokenByToken(token string) (*entity.RefreshToken, error) {
+	var refreshToken entity.RefreshToken
+	query := `SELECT * FROM refresh_tokens WHERE token = ?`
+
+	err := r.db.Get(&refreshToken, query, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &refreshToken, nil
+}
+
+// DeleteRefreshToken deletes a refresh token from the database
+func (r *authRepository) DeleteRefreshToken(token string) error {
+	query := `DELETE FROM refresh_tokens WHERE token = ?`
+
+	_, err := r.db.Exec(query, token)
 	return err
 }
 

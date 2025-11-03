@@ -35,3 +35,13 @@ type ResetPasswordRequest struct {
 	Password        string `json:"password" validate:"required,min=8"`
 	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=Password"`
 }
+
+// RefreshTokenRequest represents the data transfer object for refresh token operations
+type RefreshTokenRequest struct {
+	Token string `json:"refresh_token" validate:"required"`
+}
+
+// RefreshAccessTokenResponse represents the response for refresh token endpoint
+type RefreshAccessTokenResponse struct {
+	AccessToken string `json:"access_token"`
+}

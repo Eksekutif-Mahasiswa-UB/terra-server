@@ -21,6 +21,8 @@ type AuthService interface {
 	Register(request dto.RegisterRequest) (*entity.User, error)
 	Login(request dto.LoginRequest) (*dto.LoginResponse, error)
 	LoginWithGoogle(request dto.GoogleLoginRequest) (*dto.LoginResponse, error)
+	RefreshToken(request dto.RefreshTokenRequest) (*dto.RefreshAccessTokenResponse, error)
+	Logout(request dto.RefreshTokenRequest) error
 	ForgotPassword(request dto.ForgotPasswordRequest) error
 	ResetPassword(request dto.ResetPasswordRequest) error
 }
@@ -222,40 +224,40 @@ func (s *authService) LoginWithGoogle(request dto.GoogleLoginRequest) (*dto.Logi
 
 // ForgotPassword handles the forgot password business logic
 func (s *authService) ForgotPassword(request dto.ForgotPasswordRequest) error {
-// Step 1: Get user by email
-user, err := s.authRepo.GetUserByEmail(request.Email)
+	// Step 1: Get user by email
+	user, err := s.authRepo.GetUserByEmail(request.Email)
 
-// CRITICAL CHECK: If user not found OR auth_method is google, silently succeed
-// This prevents email enumeration attacks
-if err != nil {
-if err == sql.ErrNoRows {
-// User not found - return success to prevent enumeration
-return nil
-}
-// Database error - return error
-return errors.New("failed to process request")
-}
+	// CRITICAL CHECK: If user not found OR auth_method is google, silently succeed
+	// This prevents email enumeration attacks
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// User not found - return success to prevent enumeration
+			return nil
+		}
+		// Database error - return error
+		return errors.New("failed to process request")
+	}
 
-// If user has Google auth method, silently succeed (don't send email)
-if user.AuthMethod == "google" {
-return nil
-}
+	// If user has Google auth method, silently succeed (don't send email)
+	if user.AuthMethod == "google" {
+		return nil
+	}
 
-// Step 2: Only proceed if auth_method is email
-if user.AuthMethod != "email" {
-return nil
-}
+	// Step 2: Only proceed if auth_method is email
+	if user.AuthMethod != "email" {
+		return nil
+	}
 
-// Step 3: Generate reset token (15 minutes expiry)
-resetToken, err := jwt.GenerateResetToken(user.Email, s.cfg.JWTSecret)
-if err != nil {
-return errors.New("failed to generate reset token")
-}
+	// Step 3: Generate reset token (15 minutes expiry)
+	resetToken, err := jwt.GenerateResetToken(user.Email, s.cfg.JWTSecret)
+	if err != nil {
+		return errors.New("failed to generate reset token")
+	}
 
-// Step 4: Compose reset email
-resetLink := fmt.Sprintf("https://your-frontend.com/reset-password?token=%s", resetToken)
-subject := "Password Reset Request"
-body := fmt.Sprintf(`
+	// Step 4: Compose reset email
+	resetLink := fmt.Sprintf("https://your-frontend.com/reset-password?token=%s", resetToken)
+	subject := "Password Reset Request"
+	body := fmt.Sprintf(`
 <html>
 <body>
 <h2>Password Reset Request</h2>
@@ -270,51 +272,110 @@ body := fmt.Sprintf(`
 </html>
 `, user.FullName, resetLink)
 
-// Step 5: Send email
-if err := s.emailService.SendEmail(user.Email, subject, body); err != nil {
-return errors.New("failed to send reset email")
+	// Step 5: Send email
+	if err := s.emailService.SendEmail(user.Email, subject, body); err != nil {
+		return errors.New("failed to send reset email")
+	}
+
+	return nil
 }
 
-return nil
+// RefreshToken handles the refresh token logic to generate a new access token
+func (s *authService) RefreshToken(request dto.RefreshTokenRequest) (*dto.RefreshAccessTokenResponse, error) {
+	// Step 1: Validate the token's signature
+	claims, err := jwt.ValidateToken(request.Token, s.cfg.JWTSecret)
+	if err != nil {
+		return nil, errors.New("invalid or expired token")
+	}
+
+	// Step 2: CRITICAL CHECK - verify token purpose is "refresh"
+	if claims.Purpose != "refresh" {
+		return nil, errors.New("invalid token: not a refresh token")
+	}
+
+	// Step 3: Check if token exists in database (stateful check)
+	refreshToken, err := s.authRepo.GetRefreshTokenByToken(request.Token)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("token is invalid or has been revoked")
+		}
+		return nil, errors.New("failed to validate token")
+	}
+
+	// Step 4: Check if token is expired
+	if refreshToken.ExpiresAt.Before(time.Now()) {
+		return nil, errors.New("refresh token has expired")
+	}
+
+	// Step 5: Get user by ID from the refresh token
+	user, err := s.authRepo.GetUserByID(refreshToken.UserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to get user")
+	}
+
+	// Step 6: Generate new access token (15 minutes, purpose: "access")
+	accessToken, err := jwt.GenerateAccessToken(user.ID, user.Role, s.cfg.JWTSecret)
+	if err != nil {
+		return nil, errors.New("failed to generate access token")
+	}
+
+	// Step 7: Return new access token
+	return &dto.RefreshAccessTokenResponse{
+		AccessToken: accessToken,
+	}, nil
+}
+
+// Logout handles the logout logic by invalidating the refresh token
+func (s *authService) Logout(request dto.RefreshTokenRequest) error {
+	// Delete the refresh token from the database
+	// This invalidates the token, preventing it from being used again
+	if err := s.authRepo.DeleteRefreshToken(request.Token); err != nil {
+		return errors.New("failed to logout")
+	}
+
+	return nil
 }
 
 // ResetPassword handles the reset password business logic
 func (s *authService) ResetPassword(request dto.ResetPasswordRequest) error {
-// Step 1: Validate password confirmation
-if request.Password != request.ConfirmPassword {
-return errors.New("passwords do not match")
-}
+	// Step 1: Validate password confirmation
+	if request.Password != request.ConfirmPassword {
+		return errors.New("passwords do not match")
+	}
 
-// Step 2: Validate token
-claims, err := jwt.ValidateToken(request.Token, s.cfg.JWTSecret)
-if err != nil {
-return errors.New("invalid or expired token")
-}
+	// Step 2: Validate token
+	claims, err := jwt.ValidateToken(request.Token, s.cfg.JWTSecret)
+	if err != nil {
+		return errors.New("invalid or expired token")
+	}
 
-// Step 3: CRITICAL CHECK - verify token purpose
-if claims.Purpose != "reset_password" {
-return errors.New("invalid token purpose")
-}
+	// Step 3: CRITICAL CHECK - verify token purpose
+	if claims.Purpose != "reset_password" {
+		return errors.New("invalid token purpose")
+	}
 
-// Step 4: Extract email from token
-email := claims.Email
-if email == "" {
-return errors.New("invalid token: missing email")
-}
+	// Step 4: Extract email from token
+	email := claims.Email
+	if email == "" {
+		return errors.New("invalid token: missing email")
+	}
 
-// Step 5: Hash new password
-hashedPassword, err := hash.HashPassword(request.Password)
-if err != nil {
-return errors.New("failed to hash password")
-}
+	// Step 5: Hash new password
+	hashedPassword, err := hash.HashPassword(request.Password)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
 
-// Step 6: Update password in database
-if err := s.authRepo.UpdateUserPassword(email, hashedPassword); err != nil {
-if err == sql.ErrNoRows {
-return errors.New("user not found or not authorized")
-}
-return errors.New("failed to update password")
-}
+	// Step 6: Update password in database
+	if err := s.authRepo.UpdateUserPassword(email, hashedPassword); err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("user not found or not authorized")
+		}
+		return errors.New("failed to update password")
+	}
 
-return nil
+	return nil
 }

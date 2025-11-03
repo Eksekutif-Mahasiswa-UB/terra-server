@@ -22,8 +22,9 @@ type Claims struct {
 func GenerateTokens(userID string, role string, jwtSecret string) (accessToken string, refreshToken string, err error) {
 	// Generate Access Token (15 minutes)
 	accessClaims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:  userID,
+		Role:    role,
+		Purpose: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -39,8 +40,9 @@ func GenerateTokens(userID string, role string, jwtSecret string) (accessToken s
 
 	// Generate Refresh Token (7 days)
 	refreshClaims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:  userID,
+		Role:    role,
+		Purpose: "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -86,6 +88,23 @@ func GetTokenExpiry(tokenString string, jwtSecret string) (time.Time, error) {
 	}
 
 	return claims.ExpiresAt.Time, nil
+}
+
+// GenerateAccessToken generates only an access token (15 minutes expiry)
+func GenerateAccessToken(userID string, role string, jwtSecret string) (string, error) {
+	claims := Claims{
+		UserID:  userID,
+		Role:    role,
+		Purpose: "access",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        uuid.NewString(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(jwtSecret))
 }
 
 // GenerateResetToken generates a reset password token with 15 minutes expiry
