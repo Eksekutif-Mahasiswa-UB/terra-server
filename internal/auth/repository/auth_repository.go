@@ -29,8 +29,8 @@ func (r *authRepository) CreateUser(user *entity.User) error {
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
-	query := `INSERT INTO users (id, nama_lengkap, email, password, role, google_id, created_at, updated_at) 
-			  VALUES (:id, :nama_lengkap, :email, :password, :role, :google_id, :created_at, :updated_at)`
+	query := `INSERT INTO users (id, full_name, email, password, role, auth_method, created_at, updated_at)
+          VALUES (:id, :full_name, :email, :password, :role, :auth_method, :created_at, :updated_at)`
 
 	_, err := r.db.NamedExec(query, user)
 	return err
