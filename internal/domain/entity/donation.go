@@ -13,12 +13,12 @@ const (
 
 // Donation represents a donation entity in the system
 type Donation struct {
-	ID        string         `db:"id" json:"id"`
-	OrderID   string         `db:"order_id" json:"order_id"`
-	UserID    *string        `db:"user_id" json:"user_id,omitempty"`
-	Amount    int64          `db:"amount" json:"amount"`
-	Status    DonationStatus `db:"status" json:"status"`
-	PaidBy    string         `db:"paid_by" json:"paid_by"`
-	CreatedAt time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time      `db:"updated_at" json:"updated_at"`
+	ID        string         `db:"id"`
+	OrderID   string         `db:"order_id"`
+	UserID    *string        `db:"user_id"`
+	Amount    int64          `db:"amount"`
+	Status    DonationStatus `db:"status"`
+	PaidBy    string         `db:"paid_by"`
+	CreatedAt time.Time      `db:"created_at"`
+	UpdatedAt time.Time      `db:"updated_at"`
 }

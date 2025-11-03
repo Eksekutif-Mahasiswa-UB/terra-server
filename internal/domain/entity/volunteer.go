@@ -21,16 +21,16 @@ const (
 
 // Volunteer represents a volunteer entity in the system
 type Volunteer struct {
-	ID              string          `db:"id" json:"id"`
-	FullName        string          `db:"full_name" json:"full_name"`
-	Email           string          `db:"email" json:"email"`
-	PhoneNumber     string          `db:"phone_number" json:"phone_number"`
-	BirthDate       time.Time       `db:"birth_date" json:"birth_date"`
-	Gender          Gender          `db:"gender" json:"gender"`
-	Domicile        string          `db:"domicile" json:"domicile"`
-	Status          VolunteerStatus `db:"status" json:"status"`
-	Interest        string          `db:"interest" json:"interest"`
-	CertificateName string          `db:"certificate_name" json:"certificate_name"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
+	ID              string          `db:"id"`
+	FullName        string          `db:"full_name"`
+	Email           string          `db:"email"`
+	PhoneNumber     string          `db:"phone_number"`
+	BirthDate       time.Time       `db:"birth_date"`
+	Gender          Gender          `db:"gender"`
+	Domicile        string          `db:"domicile"`
+	Status          VolunteerStatus `db:"status"`
+	Interest        string          `db:"interest"`
+	CertificateName string          `db:"certificate_name"`
+	CreatedAt       time.Time       `db:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at"`
 }
