@@ -111,14 +111,21 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Call service to login user
-	user, err := h.authService.Login(request)
+	loginResponse, err := h.authService.Login(request)
 	if err != nil {
-		statusCode := http.StatusUnauthorized
-		if err.Error() == "email or password is incorrect" {
+		// Handle different error types
+		statusCode := http.StatusInternalServerError
+
+		// Google account error - return 400 Bad Request
+		if err.Error() == "this account is registered with Google. Please use Google login" {
+			statusCode = http.StatusBadRequest
+		} else if err.Error() == "email or password is incorrect" {
+			// Invalid credentials - return 401 Unauthorized
 			statusCode = http.StatusUnauthorized
-		} else {
-			statusCode = http.StatusInternalServerError
+		} else if err.Error() == "invalid authentication method" {
+			statusCode = http.StatusBadRequest
 		}
+
 		c.JSON(statusCode, gin.H{
 			"error":   "Login failed",
 			"message": err.Error(),
@@ -126,12 +133,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Convert to DTO response
-	userResponse := dto.ToUserResponse(user)
-
-	// Return success response
+	// Return success response with tokens
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
-		"data":    userResponse,
+		"data":    loginResponse,
 	})
 }

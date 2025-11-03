@@ -64,7 +64,6 @@ func seedAdminUser(authRepo repository.AuthRepository, cfg config.Config) error 
 		Password:   hashedPassword,
 		Role:       "admin",
 		AuthMethod: "email",
-		GoogleID:   nil,
 	}
 
 	// Save to database

@@ -12,6 +12,7 @@ type AuthRepository interface {
 	CreateUser(user *entity.User) error
 	GetUserByEmail(email string) (*entity.User, error)
 	GetUserByID(id string) (*entity.User, error)
+	CreateRefreshToken(token *entity.RefreshToken) error
 }
 
 // authRepository is the concrete implementation of AuthRepository
@@ -60,4 +61,15 @@ func (r *authRepository) GetUserByID(id string) (*entity.User, error) {
 	}
 
 	return &user, nil
+}
+
+// CreateRefreshToken inserts a new refresh token into the database
+func (r *authRepository) CreateRefreshToken(token *entity.RefreshToken) error {
+	token.CreatedAt = time.Now()
+
+	query := `INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at) 
+			  VALUES (:id, :user_id, :token, :expires_at, :created_at)`
+
+	_, err := r.db.NamedExec(query, token)
+	return err
 }
