@@ -199,3 +199,127 @@ func (h *AuthHandler) LoginWithGoogle(c *gin.Context) {
 		"data":    loginResponse,
 	})
 }
+
+// ForgotPassword handles the forgot password endpoint
+// @Summary Request password reset
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.ForgotPasswordRequest true "Forgot Password Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/v1/auth/forgot-password [post]
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var request dto.ForgotPasswordRequest
+
+	// Bind JSON request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Validate email is not empty
+	if strings.TrimSpace(request.Email) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Email cannot be empty",
+		})
+		return
+	}
+
+	// Call service to handle forgot password
+	// Note: This always succeeds to prevent email enumeration
+	_ = h.authService.ForgotPassword(request)
+
+	// Always return success message regardless of whether email exists
+	c.JSON(http.StatusOK, gin.H{
+		"message": "If your email is registered, you will receive a password reset link.",
+	})
+}
+
+// ResetPassword handles the reset password endpoint
+// @Summary Reset password using token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.ResetPasswordRequest true "Reset Password Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var request dto.ResetPasswordRequest
+
+	// Bind JSON request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Validate token is not empty
+	if strings.TrimSpace(request.Token) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Token cannot be empty",
+		})
+		return
+	}
+
+	// Validate password is not empty
+	if strings.TrimSpace(request.Password) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Password cannot be empty",
+		})
+		return
+	}
+
+	// Validate password confirmation
+	if request.Password != request.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Passwords do not match",
+		})
+		return
+	}
+
+	// Validate password length
+	if len(request.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Password must be at least 8 characters",
+		})
+		return
+	}
+
+	// Call service to reset password
+	err := h.authService.ResetPassword(request)
+	if err != nil {
+		// Handle different error types
+		statusCode := http.StatusInternalServerError
+
+		// Token validation errors - return 401 Unauthorized
+		if err.Error() == "invalid or expired token" || err.Error() == "invalid token purpose" {
+			statusCode = http.StatusUnauthorized
+		} else if err.Error() == "passwords do not match" || err.Error() == "invalid token: missing email" {
+			statusCode = http.StatusBadRequest
+		}
+
+		c.JSON(statusCode, gin.H{
+			"error":   "Password reset failed",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password has been reset successfully.",
+	})
+}

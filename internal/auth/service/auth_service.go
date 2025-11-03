@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/repository"
@@ -20,19 +21,29 @@ type AuthService interface {
 	Register(request dto.RegisterRequest) (*entity.User, error)
 	Login(request dto.LoginRequest) (*dto.LoginResponse, error)
 	LoginWithGoogle(request dto.GoogleLoginRequest) (*dto.LoginResponse, error)
+	ForgotPassword(request dto.ForgotPasswordRequest) error
+	ResetPassword(request dto.ResetPasswordRequest) error
 }
 
 // authService is the concrete implementation of AuthService
 type authService struct {
 	authRepo       repository.AuthRepository
 	googleClientID string
+	emailService   interface {
+		SendEmail(to, subject, body string) error
+	}
+	cfg config.Config
 }
 
 // NewAuthService creates a new instance of AuthService
-func NewAuthService(authRepo repository.AuthRepository, googleClientID string) AuthService {
+func NewAuthService(authRepo repository.AuthRepository, googleClientID string, emailService interface {
+	SendEmail(to, subject, body string) error
+}, cfg config.Config) AuthService {
 	return &authService{
 		authRepo:       authRepo,
 		googleClientID: googleClientID,
+		emailService:   emailService,
+		cfg:            cfg,
 	}
 }
 
@@ -207,4 +218,103 @@ func (s *authService) LoginWithGoogle(request dto.GoogleLoginRequest) (*dto.Logi
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+// ForgotPassword handles the forgot password business logic
+func (s *authService) ForgotPassword(request dto.ForgotPasswordRequest) error {
+// Step 1: Get user by email
+user, err := s.authRepo.GetUserByEmail(request.Email)
+
+// CRITICAL CHECK: If user not found OR auth_method is google, silently succeed
+// This prevents email enumeration attacks
+if err != nil {
+if err == sql.ErrNoRows {
+// User not found - return success to prevent enumeration
+return nil
+}
+// Database error - return error
+return errors.New("failed to process request")
+}
+
+// If user has Google auth method, silently succeed (don't send email)
+if user.AuthMethod == "google" {
+return nil
+}
+
+// Step 2: Only proceed if auth_method is email
+if user.AuthMethod != "email" {
+return nil
+}
+
+// Step 3: Generate reset token (15 minutes expiry)
+resetToken, err := jwt.GenerateResetToken(user.Email, s.cfg.JWTSecret)
+if err != nil {
+return errors.New("failed to generate reset token")
+}
+
+// Step 4: Compose reset email
+resetLink := fmt.Sprintf("https://your-frontend.com/reset-password?token=%s", resetToken)
+subject := "Password Reset Request"
+body := fmt.Sprintf(`
+<html>
+<body>
+<h2>Password Reset Request</h2>
+<p>Hello %s,</p>
+<p>You requested to reset your password. Click the link below to reset your password:</p>
+<p><a href="%s">Reset Password</a></p>
+<p>This link will expire in 15 minutes.</p>
+<p>If you didn't request this, please ignore this email.</p>
+<br>
+<p>Best regards,<br>Terra Team</p>
+</body>
+</html>
+`, user.FullName, resetLink)
+
+// Step 5: Send email
+if err := s.emailService.SendEmail(user.Email, subject, body); err != nil {
+return errors.New("failed to send reset email")
+}
+
+return nil
+}
+
+// ResetPassword handles the reset password business logic
+func (s *authService) ResetPassword(request dto.ResetPasswordRequest) error {
+// Step 1: Validate password confirmation
+if request.Password != request.ConfirmPassword {
+return errors.New("passwords do not match")
+}
+
+// Step 2: Validate token
+claims, err := jwt.ValidateToken(request.Token, s.cfg.JWTSecret)
+if err != nil {
+return errors.New("invalid or expired token")
+}
+
+// Step 3: CRITICAL CHECK - verify token purpose
+if claims.Purpose != "reset_password" {
+return errors.New("invalid token purpose")
+}
+
+// Step 4: Extract email from token
+email := claims.Email
+if email == "" {
+return errors.New("invalid token: missing email")
+}
+
+// Step 5: Hash new password
+hashedPassword, err := hash.HashPassword(request.Password)
+if err != nil {
+return errors.New("failed to hash password")
+}
+
+// Step 6: Update password in database
+if err := s.authRepo.UpdateUserPassword(email, hashedPassword); err != nil {
+if err == sql.ErrNoRows {
+return errors.New("user not found or not authorized")
+}
+return errors.New("failed to update password")
+}
+
+return nil
 }

@@ -23,3 +23,15 @@ type LoginResponse struct {
 type GoogleLoginRequest struct {
 	Credential string `json:"credential" validate:"required"`
 }
+
+// ForgotPasswordRequest represents the data transfer object for forgot password
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResetPasswordRequest represents the data transfer object for reset password
+type ResetPasswordRequest struct {
+	Token           string `json:"token" validate:"required"`
+	Password        string `json:"password" validate:"required,min=8"`
+	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=Password"`
+}

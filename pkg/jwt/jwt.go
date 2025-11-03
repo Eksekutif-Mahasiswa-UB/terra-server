@@ -10,8 +10,10 @@ import (
 
 // Claims represents the JWT claims structure
 type Claims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID  string `json:"user_id"`
+	Role    string `json:"role"`
+	Email   string `json:"email,omitempty"`
+	Purpose string `json:"purpose,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -84,4 +86,20 @@ func GetTokenExpiry(tokenString string, jwtSecret string) (time.Time, error) {
 	}
 
 	return claims.ExpiresAt.Time, nil
+}
+
+// GenerateResetToken generates a reset password token with 15 minutes expiry
+func GenerateResetToken(email string, jwtSecret string) (string, error) {
+	claims := Claims{
+		Email:   email,
+		Purpose: "reset_password",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        uuid.NewString(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(jwtSecret))
 }

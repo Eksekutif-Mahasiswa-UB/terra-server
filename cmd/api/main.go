@@ -11,6 +11,7 @@ import (
 	programHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/handler"
 	programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository"
 	programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service"
+	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/email"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,8 +32,17 @@ func main() {
 	authRepository := authRepo.NewAuthRepository(db)
 	programRepository := programRepo.NewProgramRepository(db)
 
+	// Initialize email service
+	emailService := email.NewEmailService(
+		config.AppConfig.SMTPHost,
+		config.AppConfig.SMTPPort,
+		config.AppConfig.SMTPUser,
+		config.AppConfig.SMTPPassword,
+		config.AppConfig.SMTPSenderEmail,
+	)
+
 	// Initialize services
-	authSvc := authService.NewAuthService(authRepository, config.AppConfig.GoogleClientID)
+	authSvc := authService.NewAuthService(authRepository, config.AppConfig.GoogleClientID, emailService, *config.AppConfig)
 	programSvc := programService.NewProgramService(programRepository)
 
 	// Initialize handlers
@@ -78,6 +88,8 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, progr
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/login/google", authHandler.LoginWithGoogle)
+			auth.POST("/forgot-password", authHandler.ForgotPassword)
+			auth.POST("/reset-password", authHandler.ResetPassword)
 		}
 
 		// Program routes
