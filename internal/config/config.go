@@ -16,6 +16,7 @@ type Config struct {
 	ServerPort        string `mapstructure:"SERVER_PORT"`
 	JWTSecret         string `mapstructure:"JWT_SECRET"`
 	SEEDER_ADMIN_PASS string `mapstructure:"SEEDER_ADMIN_PASS"`
+	GoogleClientID    string `mapstructure:"GOOGLE_CLIENT_ID"`
 }
 
 var AppConfig *Config
@@ -36,6 +37,7 @@ func LoadConfig() {
 		ServerPort:        getEnv("SERVER_PORT", "8080"),
 		JWTSecret:         getEnv("JWT_SECRET", "your-secret-key"),
 		SEEDER_ADMIN_PASS: getEnv("SEEDER_ADMIN_PASS", "password123"),
+		GoogleClientID:    getEnv("GOOGLE_CLIENT_ID", ""),
 	}
 
 	log.Println("Configuration loaded successfully")

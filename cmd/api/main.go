@@ -32,7 +32,7 @@ func main() {
 	programRepository := programRepo.NewProgramRepository(db)
 
 	// Initialize services
-	authSvc := authService.NewAuthService(authRepository)
+	authSvc := authService.NewAuthService(authRepository, config.AppConfig.GoogleClientID)
 	programSvc := programService.NewProgramService(programRepository)
 
 	// Initialize handlers
@@ -77,6 +77,7 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, progr
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/login/google", authHandler.LoginWithGoogle)
 		}
 
 		// Program routes

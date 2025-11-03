@@ -9,6 +9,7 @@ import (
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/config"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/domain/dto"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/domain/entity"
+	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/google"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/hash"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/jwt"
 	"github.com/google/uuid"
@@ -18,16 +19,21 @@ import (
 type AuthService interface {
 	Register(request dto.RegisterRequest) (*entity.User, error)
 	Login(request dto.LoginRequest) (*dto.LoginResponse, error)
+	LoginWithGoogle(request dto.GoogleLoginRequest) (*dto.LoginResponse, error)
 }
 
 // authService is the concrete implementation of AuthService
 type authService struct {
-	authRepo repository.AuthRepository
+	authRepo       repository.AuthRepository
+	googleClientID string
 }
 
 // NewAuthService creates a new instance of AuthService
-func NewAuthService(authRepo repository.AuthRepository) AuthService {
-	return &authService{authRepo: authRepo}
+func NewAuthService(authRepo repository.AuthRepository, googleClientID string) AuthService {
+	return &authService{
+		authRepo:       authRepo,
+		googleClientID: googleClientID,
+	}
 }
 
 // Register handles the business logic for user registration
@@ -108,6 +114,87 @@ func (s *authService) Login(request dto.LoginRequest) (*dto.LoginResponse, error
 		ID:        uuid.NewString(),
 		UserID:    user.ID,
 		Token:     refreshToken, // Store the JWT refresh token
+		ExpiresAt: refreshTokenExpiry,
+	}
+
+	if err := s.authRepo.CreateRefreshToken(refreshTokenEntity); err != nil {
+		return nil, errors.New("failed to save refresh token")
+	}
+
+	// Step 8: Return login response with both tokens
+	return &dto.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
+// LoginWithGoogle handles the business logic for Google OAuth login
+func (s *authService) LoginWithGoogle(request dto.GoogleLoginRequest) (*dto.LoginResponse, error) {
+	// Step 1: Verify Google token
+	tokenInfo, err := google.VerifyGoogleToken(request.Credential, s.googleClientID)
+	if err != nil {
+		return nil, errors.New("invalid Google token")
+	}
+
+	// Extract email and name from token
+	email := tokenInfo.Email
+	fullName := tokenInfo.Email // Use email as fallback if name not available
+
+	// Step 2: Check if user exists
+	existingUser, err := s.authRepo.GetUserByEmail(email)
+
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.New("failed to check user existence")
+	}
+
+	var user *entity.User
+
+	// Step 3: User exists - check auth_method
+	if existingUser != nil {
+		// CRUCIAL CHECK: If user exists with email auth, reject
+		if existingUser.AuthMethod == "email" {
+			return nil, errors.New("please log in using email and password")
+		}
+
+		// If auth_method is google, proceed with login
+		if existingUser.AuthMethod == "google" {
+			user = existingUser
+		} else {
+			return nil, errors.New("invalid authentication method")
+		}
+	} else {
+		// Step 4: New user - create account with Google auth
+		newUser := &entity.User{
+			ID:         uuid.NewString(),
+			FullName:   fullName,
+			Email:      email,
+			Password:   "", // NULL password for Google users
+			Role:       "user",
+			AuthMethod: "google",
+		}
+
+		// Save new user to database
+		if err := s.authRepo.CreateUser(newUser); err != nil {
+			return nil, errors.New("failed to create user account")
+		}
+
+		user = newUser
+	}
+
+	// Step 5: Generate tokens (access token 15m, refresh token 7d)
+	accessToken, refreshToken, err := jwt.GenerateTokens(user.ID, user.Role, config.AppConfig.JWTSecret)
+	if err != nil {
+		return nil, errors.New("failed to generate tokens")
+	}
+
+	// Step 6: Get refresh token expiry (7 days from now)
+	refreshTokenExpiry := time.Now().Add(7 * 24 * time.Hour)
+
+	// Step 7: Save refresh token to database
+	refreshTokenEntity := &entity.RefreshToken{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		Token:     refreshToken,
 		ExpiresAt: refreshTokenExpiry,
 	}
 

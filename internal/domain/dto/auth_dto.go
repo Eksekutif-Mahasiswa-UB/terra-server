@@ -18,3 +18,8 @@ type LoginResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
+
+// GoogleLoginRequest represents the data transfer object for Google login
+type GoogleLoginRequest struct {
+	Credential string `json:"credential" validate:"required"`
+}

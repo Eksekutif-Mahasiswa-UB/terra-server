@@ -139,3 +139,63 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"data":    loginResponse,
 	})
 }
+
+// LoginWithGoogle handles the Google OAuth login endpoint
+// @Summary Login with Google
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.GoogleLoginRequest true "Google Login Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/v1/auth/login/google [post]
+func (h *AuthHandler) LoginWithGoogle(c *gin.Context) {
+	var request dto.GoogleLoginRequest
+
+	// Bind JSON request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Validate credential is not empty
+	if strings.TrimSpace(request.Credential) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation error",
+			"message": "Google credential cannot be empty",
+		})
+		return
+	}
+
+	// Call service to login with Google
+	loginResponse, err := h.authService.LoginWithGoogle(request)
+	if err != nil {
+		// Handle different error types
+		statusCode := http.StatusInternalServerError
+
+		// Email account error - return 400 Bad Request
+		if err.Error() == "please log in using email and password" {
+			statusCode = http.StatusBadRequest
+		} else if err.Error() == "invalid Google token" {
+			// Invalid token - return 401 Unauthorized
+			statusCode = http.StatusUnauthorized
+		} else if err.Error() == "invalid authentication method" {
+			statusCode = http.StatusBadRequest
+		}
+
+		c.JSON(statusCode, gin.H{
+			"error":   "Google login failed",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Return success response with tokens
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Google login successful",
+		"data":    loginResponse,
+	})
+}
