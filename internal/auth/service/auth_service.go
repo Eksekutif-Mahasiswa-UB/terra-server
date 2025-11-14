@@ -231,6 +231,7 @@ func (s *authService) ForgotPassword(request dto.ForgotPasswordRequest) error {
 	// This prevents email enumeration attacks
 	if err != nil {
 		if err == sql.ErrNoRows {
+			fmt.Println("Forgot password requested for non-existent email:", request.Email)
 			// User not found - return success to prevent enumeration
 			return nil
 		}
@@ -240,11 +241,13 @@ func (s *authService) ForgotPassword(request dto.ForgotPasswordRequest) error {
 
 	// If user has Google auth method, silently succeed (don't send email)
 	if user.AuthMethod == "google" {
+		fmt.Println("Forgot password requested for Google-authenticated email:", request.Email)
 		return nil
 	}
 
 	// Step 2: Only proceed if auth_method is email
 	if user.AuthMethod != "email" {
+		fmt.Println("Forgot password requested for unsupported auth method for email:", request.Email)
 		return nil
 	}
 
@@ -274,8 +277,10 @@ func (s *authService) ForgotPassword(request dto.ForgotPasswordRequest) error {
 
 	// Step 5: Send email
 	if err := s.emailService.SendEmail(user.Email, subject, body); err != nil {
+		fmt.Println("Failed to send reset email to:", user.Email, "Error:", err)
 		return errors.New("failed to send reset email")
 	}
+	fmt.Println("Reset email sent to:", user.Email)
 
 	return nil
 }

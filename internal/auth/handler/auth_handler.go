@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -232,7 +233,11 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 
 	// Call service to handle forgot password
 	// Note: This always succeeds to prevent email enumeration
-	_ = h.authService.ForgotPassword(request)
+	err := h.authService.ForgotPassword(request)
+	if err != nil {
+		// Log the error internally but do not reveal to the client
+		fmt.Println("Error handling forgot password:", err)
+	}
 
 	// Always return success message regardless of whether email exists
 	c.JSON(http.StatusOK, gin.H{
