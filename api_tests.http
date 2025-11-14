@@ -1,0 +1,156 @@
+### Health Check
+GET http://localhost:8080/health
+Content-Type: application/json
+
+###
+
+### ========================================
+### AUTH ENDPOINTS
+### ========================================
+
+### Register New User
+POST http://localhost:8080/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "nama_lengkap": "John Doe",
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+
+###
+
+### Register Another User
+POST http://localhost:8080/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "nama_lengkap": "Jane Smith",
+  "email": "jane.smith@example.com",
+  "password": "securepass456"
+}
+
+###
+
+### Test Duplicate Email (Should Fail)
+POST http://localhost:8080/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "nama_lengkap": "John Doe",
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+
+###
+
+### Test Invalid Request - Missing Fields (Should Fail)
+POST http://localhost:8080/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+###
+
+### Login User
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+
+###
+
+### Login Admin (after running seeder)
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@terra.com",
+  "password": "password123"
+}
+
+###
+
+### Login Wrong Password (Should Fail)
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "password": "wrongpassword"
+}
+
+###
+
+### ========================================
+### PROGRAM ENDPOINTS
+### ========================================
+
+### Get All Programs
+GET http://localhost:8080/api/v1/programs
+Content-Type: application/json
+
+###
+
+### Create New Program
+POST http://localhost:8080/api/v1/programs
+Content-Type: application/json
+
+{
+  "title": "Beach Cleanup",
+  "description": "Program pembersihan pantai untuk menjaga kelestarian ekosistem laut dan mengurangi polusi plastik di perairan.",
+  "image_url": "https://example.com/images/beach-cleanup.jpg"
+}
+
+###
+
+### Create Another Program
+POST http://localhost:8080/api/v1/programs
+Content-Type: application/json
+
+{
+  "title": "Urban Farming",
+  "description": "Inisiatif pertanian kota untuk meningkatkan ketahanan pangan dan menghijaukan lingkungan urban.",
+  "image_url": ""
+}
+
+###
+
+### Get Program by ID (Replace {id} with actual program ID)
+GET http://localhost:8080/api/v1/programs/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+###
+
+### Update Program (Replace {id} with actual program ID)
+PUT http://localhost:8080/api/v1/programs/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "title": "Beach Cleanup - Updated",
+  "description": "Program pembersihan pantai yang telah diperbarui dengan metode baru dan lebih efektif.",
+  "image_url": "https://example.com/images/beach-cleanup-v2.jpg"
+}
+
+###
+
+### Delete Program (Replace {id} with actual program ID)
+DELETE http://localhost:8080/api/v1/programs/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+###
+
+### Test Invalid Program Creation - Missing Fields (Should Fail)
+POST http://localhost:8080/api/v1/programs
+Content-Type: application/json
+
+{
+  "title": "Incomplete Program"
+}
+
+###
