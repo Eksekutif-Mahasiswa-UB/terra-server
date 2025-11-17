@@ -8,10 +8,12 @@ import (
 	authService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/config"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/database"
+
 	// programHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/handler"
-	// programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service" 
-	// programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository" 
+	// programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service"
+	// programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/email"
+	googleOAuth "github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/google"
 	"github.com/gin-gonic/gin"
 )
 
@@ -45,15 +47,23 @@ func main() {
 	authSvc := authService.NewAuthService(authRepository, config.AppConfig.GoogleClientID, emailService, *config.AppConfig)
 	// programSvc := programService.NewProgramService(programRepository) // NONAKTIFKAN
 
+	// Initialize OAuth2 configuration
+	oauth2Config := googleOAuth.NewOAuth2Config(
+		config.AppConfig.GoogleClientID,
+		config.AppConfig.GoogleClientSecret,
+		config.AppConfig.GoogleRedirectURL,
+	)
+
 	// Initialize handlers
 	authHdl := authHandler.NewAuthHandler(authSvc)
+	oauth2Hdl := authHandler.NewOAuth2Handler(authSvc, oauth2Config)
 	// programHdl := programHandler.NewProgramHandler(programSvc) // NONAKTIFKAN
 
 	// Initialize Gin router
 	router := gin.Default()
 
 	// Setup routes
-	setupRoutes(router, authHdl) // HAPUS programHdl DARI SINI
+	setupRoutes(router, authHdl, oauth2Hdl) // HAPUS programHdl DARI SINI
 
 	// Get server port from config
 	serverPort := config.AppConfig.ServerPort
@@ -70,7 +80,7 @@ func main() {
 }
 
 // setupRoutes configures all application routes
-func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler) {
+func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler) {
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -79,19 +89,26 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler) {
 		})
 	})
 
+	// OAuth2 routes (outside /api/v1 for cleaner URLs)
+	auth := router.Group("/auth")
+	{
+		auth.GET("/google/login", oauth2Handler.HandleGoogleLogin)
+		auth.GET("/google/callback", oauth2Handler.HandleGoogleCallback)
+	}
+
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
 		// Authentication routes
-		auth := v1.Group("/auth")
+		authV1 := v1.Group("/auth")
 		{
-			auth.POST("/register", authHandler.Register)
-			auth.POST("/login", authHandler.Login)
-			auth.POST("/login/google", authHandler.LoginWithGoogle)
-			auth.POST("/refresh", authHandler.RefreshToken)
-			auth.POST("/logout", authHandler.Logout)
-			auth.POST("/forgot-password", authHandler.ForgotPassword)
-			auth.POST("/reset-password", authHandler.ResetPassword)
+			authV1.POST("/register", authHandler.Register)
+			authV1.POST("/login", authHandler.Login)
+			authV1.POST("/login/google", authHandler.LoginWithGoogle)
+			authV1.POST("/refresh", authHandler.RefreshToken)
+			authV1.POST("/logout", authHandler.Logout)
+			authV1.POST("/forgot-password", authHandler.ForgotPassword)
+			authV1.POST("/reset-password", authHandler.ResetPassword)
 		}
 
 		// Program routes

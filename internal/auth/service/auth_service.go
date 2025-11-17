@@ -25,6 +25,9 @@ type AuthService interface {
 	Logout(request dto.RefreshTokenRequest) error
 	ForgotPassword(request dto.ForgotPasswordRequest) error
 	ResetPassword(request dto.ResetPasswordRequest) error
+	// OAuth2 server-side flow methods
+	FindOrCreateGoogleUser(email, fullName string) (*entity.User, error)
+	GenerateAppTokens(userID, role string) (*dto.LoginResponse, error)
 }
 
 // authService is the concrete implementation of AuthService
@@ -258,7 +261,7 @@ func (s *authService) ForgotPassword(request dto.ForgotPasswordRequest) error {
 	}
 
 	// Step 4: Compose reset email
-	resetLink := fmt.Sprintf("https://your-frontend.com/reset-password?token=%s", resetToken)
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.cfg.FrontendBaseURL, resetToken)
 	subject := "Password Reset Request"
 	body := fmt.Sprintf(`
 <html>
@@ -383,4 +386,79 @@ func (s *authService) ResetPassword(request dto.ResetPasswordRequest) error {
 	}
 
 	return nil
+}
+
+// FindOrCreateGoogleUser finds an existing Google user or creates a new one
+// This method is reusable for both client-side and server-side OAuth flows
+func (s *authService) FindOrCreateGoogleUser(email, fullName string) (*entity.User, error) {
+	// Step 1: Check if user exists
+	existingUser, err := s.authRepo.GetUserByEmail(email)
+
+	// If user found, validate auth method
+	if err == nil && existingUser != nil {
+		// Check if user registered with email/password
+		if existingUser.AuthMethod == "email" {
+			return nil, errors.New("this email is already registered with email/password. Please use email login")
+		}
+
+		// Check if auth method is Google
+		if existingUser.AuthMethod == "google" {
+			return existingUser, nil
+		}
+
+		return nil, errors.New("invalid authentication method")
+	}
+
+	// If error is not "no rows", return error
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to check user existence: %w", err)
+	}
+
+	// Step 2: User doesn't exist, create new user with Google auth
+	newUser := &entity.User{
+		ID:         uuid.NewString(),
+		FullName:   fullName,
+		Email:      email,
+		Password:   "", // Empty password for Google users
+		Role:       "user",
+		AuthMethod: "google",
+	}
+
+	// Save new user to database
+	if err := s.authRepo.CreateUser(newUser); err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return newUser, nil
+}
+
+// GenerateAppTokens generates access and refresh tokens for a user
+// This method is reusable across different authentication flows
+func (s *authService) GenerateAppTokens(userID, role string) (*dto.LoginResponse, error) {
+	// Step 1: Generate tokens (access token 15m, refresh token 7d)
+	accessToken, refreshToken, err := jwt.GenerateTokens(userID, role, s.cfg.JWTSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	// Step 2: Calculate refresh token expiry (7 days from now)
+	refreshTokenExpiry := time.Now().Add(7 * 24 * time.Hour)
+
+	// Step 3: Save refresh token to database
+	refreshTokenEntity := &entity.RefreshToken{
+		ID:        uuid.NewString(),
+		UserID:    userID,
+		Token:     refreshToken,
+		ExpiresAt: refreshTokenExpiry,
+	}
+
+	if err := s.authRepo.CreateRefreshToken(refreshTokenEntity); err != nil {
+		return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	}
+
+	// Step 4: Return login response with both tokens
+	return &dto.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }

@@ -435,3 +435,33 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		"message": "Password has been reset successfully.",
 	})
 }
+
+// HandleGoogleLogin initiates the Google OAuth2 authorization flow
+// @Summary Initiate Google OAuth2 login
+// @Description Redirects user to Google's authorization page
+// @Tags auth
+// @Produce html
+// @Success 302 {string} string "Redirect to Google"
+// @Router /auth/google/login [get]
+func (h *AuthHandler) HandleGoogleLogin(c *gin.Context) {
+	// This will be implemented by passing oauth2Config from main.go
+	// For now, just a placeholder that will be called by the route
+	c.String(http.StatusNotImplemented, "OAuth2 login handler - should be set up in router")
+}
+
+// HandleGoogleCallback handles the OAuth2 callback from Google
+// @Summary Handle Google OAuth2 callback
+// @Description Exchanges authorization code for tokens and logs in the user
+// @Tags auth
+// @Produce json
+// @Param code query string true "Authorization code from Google"
+// @Param state query string false "State parameter for CSRF protection"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /auth/google/callback [get]
+func (h *AuthHandler) HandleGoogleCallback(c *gin.Context) {
+	// This will be implemented by passing oauth2Config from main.go
+	// For now, just a placeholder that will be called by the route
+	c.String(http.StatusNotImplemented, "OAuth2 callback handler - should be set up in router")
+}
