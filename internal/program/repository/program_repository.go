@@ -31,8 +31,8 @@ func (r *programRepository) CreateProgram(program *entity.Program) error {
 	program.CreatedAt = time.Now()
 	program.UpdatedAt = time.Now()
 
-	query := `INSERT INTO programs (id, title, description, image_url, created_at, updated_at) 
-			  VALUES (:id, :title, :description, :image_url, :created_at, :updated_at)`
+	query := `INSERT INTO programs (id, title, description, image_url, target_amount, created_at, updated_at) 
+			  VALUES (:id, :title, :description, :image_url, :target_amount, :created_at, :updated_at)`
 
 	_, err := r.db.NamedExec(query, program)
 	return err
@@ -69,7 +69,7 @@ func (r *programRepository) UpdateProgram(program *entity.Program) error {
 	program.UpdatedAt = time.Now()
 
 	query := `UPDATE programs 
-			  SET title = :title, description = :description, image_url = :image_url, updated_at = :updated_at 
+			  SET title = :title, description = :description, image_url = :image_url, target_amount = :target_amount, updated_at = :updated_at 
 			  WHERE id = :id`
 
 	_, err := r.db.NamedExec(query, program)
@@ -82,5 +82,3 @@ func (r *programRepository) DeleteProgram(id string) error {
 	_, err := r.db.Exec(query, id)
 	return err
 }
-
-

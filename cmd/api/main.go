@@ -8,10 +8,9 @@ import (
 	authService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/config"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/database"
-
-	// programHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/handler"
-	// programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service"
-	// programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository"
+	programHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/handler"
+	programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository"
+	programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/email"
 	googleOAuth "github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/google"
 	"github.com/gin-gonic/gin"
@@ -32,7 +31,7 @@ func main() {
 
 	// Initialize repositories
 	authRepository := authRepo.NewAuthRepository(db)
-	// programRepository := programRepo.NewProgramRepository(db) // NONAKTIFKAN
+	programRepository := programRepo.NewProgramRepository(db)
 
 	// Initialize email service
 	emailService := email.NewEmailService(
@@ -45,7 +44,7 @@ func main() {
 
 	// Initialize services
 	authSvc := authService.NewAuthService(authRepository, config.AppConfig.GoogleClientID, emailService, *config.AppConfig)
-	// programSvc := programService.NewProgramService(programRepository) // NONAKTIFKAN
+	programSvc := programService.NewProgramService(programRepository)
 
 	// Initialize OAuth2 configuration
 	oauth2Config := googleOAuth.NewOAuth2Config(
@@ -57,13 +56,13 @@ func main() {
 	// Initialize handlers
 	authHdl := authHandler.NewAuthHandler(authSvc)
 	oauth2Hdl := authHandler.NewOAuth2Handler(authSvc, oauth2Config)
-	// programHdl := programHandler.NewProgramHandler(programSvc) // NONAKTIFKAN
+	programHdl := programHandler.NewProgramHandler(programSvc)
 
 	// Initialize Gin router
 	router := gin.Default()
 
 	// Setup routes
-	setupRoutes(router, authHdl, oauth2Hdl) // HAPUS programHdl DARI SINI
+	setupRoutes(router, authHdl, oauth2Hdl, programHdl)
 
 	// Get server port from config
 	serverPort := config.AppConfig.ServerPort
@@ -80,7 +79,7 @@ func main() {
 }
 
 // setupRoutes configures all application routes
-func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler) {
+func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler) {
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -112,14 +111,14 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 		}
 
 		// Program routes
-		// programs := v1.Group("/programs")
-		// {
-		// 	programs.POST("", programHandler.CreateProgram)
-		// 	programs.GET("", programHandler.GetAllPrograms)
-		// 	programs.GET("/:id", programHandler.GetProgramByID)
-		// 	programs.PUT("/:id", programHandler.UpdateProgram)
-		// 	programs.DELETE("/:id", programHandler.DeleteProgram)
-		// }
+		programs := v1.Group("/programs")
+		{
+			programs.POST("", programHandler.CreateProgram)
+			programs.GET("", programHandler.GetAllPrograms)
+			programs.GET("/:id", programHandler.GetProgramByID)
+			programs.PUT("/:id", programHandler.UpdateProgram)
+			programs.DELETE("/:id", programHandler.DeleteProgram)
+		}
 
 		// - Events
 		// - Articles

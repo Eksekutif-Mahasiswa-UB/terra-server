@@ -52,12 +52,13 @@ func ToProgramResponse(program *entity.Program) *ProgramResponse {
 		return nil
 	}
 	return &ProgramResponse{
-		ID:          program.ID,
-		Title:       program.Title,
-		Description: program.Description,
-		ImageURL:    program.ImageURL,
-		CreatedAt:   program.CreatedAt,
-		UpdatedAt:   program.UpdatedAt,
+		ID:           program.ID,
+		Title:        program.Title,
+		Description:  program.Description,
+		ImageURL:     program.ImageURL,
+		TargetAmount: program.TargetAmount,
+		CreatedAt:    program.CreatedAt,
+		UpdatedAt:    program.UpdatedAt,
 	}
 }
 
