@@ -17,6 +17,9 @@ import (
 	programHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/handler"
 	programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository"
 	programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service"
+	volunteerHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/volunteer/handler"
+	volunteerRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/volunteer/repository"
+	volunteerService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/volunteer/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/email"
 	googleOAuth "github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/google"
 	"github.com/gin-gonic/gin"
@@ -40,6 +43,7 @@ func main() {
 	programRepository := programRepo.NewProgramRepository(db)
 	articleRepository := articleRepo.NewArticleRepository(db)
 	eventRepository := eventRepo.NewEventRepository(db)
+	volunteerRepository := volunteerRepo.NewVolunteerRepository(db)
 
 	// Initialize email service
 	emailService := email.NewEmailService(
@@ -55,6 +59,7 @@ func main() {
 	programSvc := programService.NewProgramService(programRepository)
 	articleSvc := articleService.NewArticleService(articleRepository)
 	eventSvc := eventService.NewEventService(eventRepository)
+	volunteerSvc := volunteerService.NewVolunteerService(volunteerRepository)
 
 	// Initialize OAuth2 configuration
 	oauth2Config := googleOAuth.NewOAuth2Config(
@@ -69,12 +74,13 @@ func main() {
 	programHdl := programHandler.NewProgramHandler(programSvc)
 	articleHdl := articleHandler.NewArticleHandler(articleSvc)
 	eventHdl := eventHandler.NewEventHandler(eventSvc)
+	volunteerHdl := volunteerHandler.NewVolunteerHandler(volunteerSvc)
 
 	// Initialize Gin router
 	router := gin.Default()
 
 	// Setup routes
-	setupRoutes(router, authHdl, oauth2Hdl, programHdl, articleHdl, eventHdl)
+	setupRoutes(router, authHdl, oauth2Hdl, programHdl, articleHdl, eventHdl, volunteerHdl)
 
 	// Get server port from config
 	serverPort := config.AppConfig.ServerPort
@@ -91,7 +97,7 @@ func main() {
 }
 
 // setupRoutes configures all application routes
-func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler, articleHandler *articleHandler.ArticleHandler, eventHandler *eventHandler.EventHandler) {
+func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler, articleHandler *articleHandler.ArticleHandler, eventHandler *eventHandler.EventHandler, volunteerHandler *volunteerHandler.VolunteerHandler) {
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -159,7 +165,15 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 			users.GET("/my-events", eventHandler.GetMyEvents)
 		}
 
+		// Volunteer routes
+		volunteers := v1.Group("/volunteers")
+		{
+			volunteers.POST("/apply", volunteerHandler.SubmitApplication)
+			volunteers.GET("", volunteerHandler.GetAllApplications)
+			volunteers.GET("/:id", volunteerHandler.GetApplicationByID)
+			volunteers.PUT("/:id/status", volunteerHandler.UpdateApplicationStatus)
+		}
+
 		// - Donations
-		// - Volunteers
 	}
 }

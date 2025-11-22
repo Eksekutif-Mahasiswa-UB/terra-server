@@ -10,27 +10,29 @@ const (
 	GenderFemale Gender = "Female"
 )
 
-// VolunteerStatus represents the status/occupation of a volunteer
-type VolunteerStatus string
+// ApplicationStatus represents the application status of a volunteer
+type ApplicationStatus string
 
 const (
-	VolunteerStatusStudent    VolunteerStatus = "Student"
-	VolunteerStatusHighSchool VolunteerStatus = "High School"
-	VolunteerStatusEmployee   VolunteerStatus = "Employee"
+	ApplicationStatusPending  ApplicationStatus = "pending"
+	ApplicationStatusApproved ApplicationStatus = "approved"
+	ApplicationStatusRejected ApplicationStatus = "rejected"
 )
 
-// Volunteer represents a volunteer entity in the system
+// Volunteer represents a volunteer application entity in the system
 type Volunteer struct {
-	ID              string          `db:"id"`
-	FullName        string          `db:"full_name"`
-	Email           string          `db:"email"`
-	PhoneNumber     string          `db:"phone_number"`
-	BirthDate       time.Time       `db:"birth_date"`
-	Gender          Gender          `db:"gender"`
-	Domicile        string          `db:"domicile"`
-	Status          VolunteerStatus `db:"status"`
-	Interest        string          `db:"interest"`
-	CertificateName string          `db:"certificate_name"`
-	CreatedAt       time.Time       `db:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at"`
+	ID          string            `db:"id" json:"id"`
+	UserID      string            `db:"user_id" json:"user_id"`
+	FullName    string            `db:"full_name" json:"full_name"`
+	Email       string            `db:"email" json:"email"`
+	Phone       string            `db:"phone" json:"phone"`
+	DateOfBirth time.Time         `db:"date_of_birth" json:"date_of_birth"`
+	Gender      Gender            `db:"gender" json:"gender"`
+	City        string            `db:"city" json:"city"`
+	Occupation  string            `db:"occupation" json:"occupation"`
+	Interests   string            `db:"interests" json:"interests"`
+	Experience  string            `db:"experience" json:"experience"`
+	Status      ApplicationStatus `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time         `db:"updated_at" json:"updated_at"`
 }

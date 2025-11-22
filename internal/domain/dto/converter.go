@@ -137,18 +137,20 @@ func ToVolunteerResponse(volunteer *entity.Volunteer) *VolunteerResponse {
 		return nil
 	}
 	return &VolunteerResponse{
-		ID:              volunteer.ID,
-		FullName:        volunteer.FullName,
-		Email:           volunteer.Email,
-		PhoneNumber:     volunteer.PhoneNumber,
-		BirthDate:       volunteer.BirthDate,
-		Gender:          volunteer.Gender,
-		Domicile:        volunteer.Domicile,
-		Status:          volunteer.Status,
-		Interest:        volunteer.Interest,
-		CertificateName: volunteer.CertificateName,
-		CreatedAt:       volunteer.CreatedAt,
-		UpdatedAt:       volunteer.UpdatedAt,
+		ID:          volunteer.ID,
+		UserID:      volunteer.UserID,
+		FullName:    volunteer.FullName,
+		Email:       volunteer.Email,
+		Phone:       volunteer.Phone,
+		DateOfBirth: volunteer.DateOfBirth,
+		Gender:      volunteer.Gender,
+		City:        volunteer.City,
+		Occupation:  volunteer.Occupation,
+		Interests:   volunteer.Interests,
+		Experience:  volunteer.Experience,
+		Status:      volunteer.Status,
+		CreatedAt:   volunteer.CreatedAt,
+		UpdatedAt:   volunteer.UpdatedAt,
 	}
 }
 
