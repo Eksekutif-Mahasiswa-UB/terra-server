@@ -111,14 +111,15 @@ func ToDonationResponse(donation *entity.Donation) *DonationResponse {
 		return nil
 	}
 	return &DonationResponse{
-		ID:        donation.ID,
-		OrderID:   donation.OrderID,
-		UserID:    donation.UserID,
-		Amount:    donation.Amount,
-		Status:    donation.Status,
-		PaidBy:    donation.PaidBy,
-		CreatedAt: donation.CreatedAt,
-		UpdatedAt: donation.UpdatedAt,
+		ID:            donation.ID,
+		UserID:        donation.UserID,
+		ProgramID:     donation.ProgramID,
+		Amount:        donation.Amount,
+		PaymentMethod: donation.PaymentMethod,
+		Status:        donation.Status,
+		ProofImage:    donation.ProofImage,
+		CreatedAt:     donation.CreatedAt,
+		UpdatedAt:     donation.UpdatedAt,
 	}
 }
 

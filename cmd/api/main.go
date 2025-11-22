@@ -11,6 +11,9 @@ import (
 	authService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/config"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/database"
+	donationHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/donation/handler"
+	donationRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/donation/repository"
+	donationService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/donation/service"
 	eventHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/event/handler"
 	eventRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/event/repository"
 	eventService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/event/service"
@@ -44,6 +47,7 @@ func main() {
 	articleRepository := articleRepo.NewArticleRepository(db)
 	eventRepository := eventRepo.NewEventRepository(db)
 	volunteerRepository := volunteerRepo.NewVolunteerRepository(db)
+	donationRepository := donationRepo.NewDonationRepository(db)
 
 	// Initialize email service
 	emailService := email.NewEmailService(
@@ -60,6 +64,7 @@ func main() {
 	articleSvc := articleService.NewArticleService(articleRepository)
 	eventSvc := eventService.NewEventService(eventRepository)
 	volunteerSvc := volunteerService.NewVolunteerService(volunteerRepository)
+	donationSvc := donationService.NewDonationService(donationRepository, programRepository)
 
 	// Initialize OAuth2 configuration
 	oauth2Config := googleOAuth.NewOAuth2Config(
@@ -75,12 +80,13 @@ func main() {
 	articleHdl := articleHandler.NewArticleHandler(articleSvc)
 	eventHdl := eventHandler.NewEventHandler(eventSvc)
 	volunteerHdl := volunteerHandler.NewVolunteerHandler(volunteerSvc)
+	donationHdl := donationHandler.NewDonationHandler(donationSvc)
 
 	// Initialize Gin router
 	router := gin.Default()
 
 	// Setup routes
-	setupRoutes(router, authHdl, oauth2Hdl, programHdl, articleHdl, eventHdl, volunteerHdl)
+	setupRoutes(router, authHdl, oauth2Hdl, programHdl, articleHdl, eventHdl, volunteerHdl, donationHdl)
 
 	// Get server port from config
 	serverPort := config.AppConfig.ServerPort
@@ -97,7 +103,7 @@ func main() {
 }
 
 // setupRoutes configures all application routes
-func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler, articleHandler *articleHandler.ArticleHandler, eventHandler *eventHandler.EventHandler, volunteerHandler *volunteerHandler.VolunteerHandler) {
+func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler, articleHandler *articleHandler.ArticleHandler, eventHandler *eventHandler.EventHandler, volunteerHandler *volunteerHandler.VolunteerHandler, donationHandler *donationHandler.DonationHandler) {
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -163,6 +169,7 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 		users := v1.Group("/users")
 		{
 			users.GET("/my-events", eventHandler.GetMyEvents)
+			users.GET("/my-donations", donationHandler.GetMyDonations)
 		}
 
 		// Volunteer routes
@@ -174,6 +181,13 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 			volunteers.PUT("/:id/status", volunteerHandler.UpdateApplicationStatus)
 		}
 
-		// - Donations
+		// Donation routes
+		donations := v1.Group("/donations")
+		{
+			donations.POST("", donationHandler.CreateDonation)
+			donations.GET("", donationHandler.GetAllDonations)
+			donations.GET("/:id", donationHandler.GetDonationByID)
+			donations.PUT("/:id/status", donationHandler.UpdateDonationStatus)
+		}
 	}
 }
