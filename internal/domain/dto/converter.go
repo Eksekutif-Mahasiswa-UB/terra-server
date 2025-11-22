@@ -30,6 +30,7 @@ func ToArticleResponse(article *entity.Article) *ArticleResponse {
 		Slug:        article.Slug,
 		Content:     article.Content,
 		ImageURL:    article.ImageURL,
+		Category:    article.Category,
 		AuthorID:    article.AuthorID,
 		PublishedAt: article.PublishedAt,
 		CreatedAt:   article.CreatedAt,
@@ -72,28 +73,34 @@ func ToProgramResponseList(programs []entity.Program) []*ProgramResponse {
 }
 
 // ToEventResponse converts an Event entity to EventResponse DTO
-func ToEventResponse(event *entity.Event) *EventResponse {
+func ToEventResponse(event *entity.Event, currentParticipants int) *EventResponse {
 	if event == nil {
 		return nil
 	}
 	return &EventResponse{
-		ID:          event.ID,
-		Title:       event.Title,
-		Slug:        event.Slug,
-		Description: event.Description,
-		ImageURL:    event.ImageURL,
-		EventDate:   event.EventDate,
-		Location:    event.Location,
-		CreatedAt:   event.CreatedAt,
-		UpdatedAt:   event.UpdatedAt,
+		ID:                  event.ID,
+		Title:               event.Title,
+		Slug:                event.Slug,
+		Description:         event.Description,
+		ImageURL:            event.ImageURL,
+		EventDate:           event.EventDate,
+		Location:            event.Location,
+		Quota:               event.Quota,
+		CurrentParticipants: currentParticipants,
+		CreatedAt:           event.CreatedAt,
+		UpdatedAt:           event.UpdatedAt,
 	}
 }
 
 // ToEventResponseList converts a slice of Event entities to EventResponse DTOs
-func ToEventResponseList(events []entity.Event) []*EventResponse {
+func ToEventResponseList(events []entity.Event, participantCounts map[string]int) []*EventResponse {
 	responses := make([]*EventResponse, len(events))
 	for i, event := range events {
-		responses[i] = ToEventResponse(&event)
+		count := 0
+		if participantCounts != nil {
+			count = participantCounts[event.ID]
+		}
+		responses[i] = ToEventResponse(&event, count)
 	}
 	return responses
 }

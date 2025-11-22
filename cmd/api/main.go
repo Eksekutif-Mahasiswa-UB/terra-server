@@ -3,11 +3,17 @@ package main
 import (
 	"log"
 
+	articleHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/article/handler"
+	articleRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/article/repository"
+	articleService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/article/service"
 	authHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/handler"
 	authRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/repository"
 	authService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/auth/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/config"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/database"
+	eventHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/event/handler"
+	eventRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/event/repository"
+	eventService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/event/service"
 	programHandler "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/handler"
 	programRepo "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/repository"
 	programService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/program/service"
@@ -32,6 +38,8 @@ func main() {
 	// Initialize repositories
 	authRepository := authRepo.NewAuthRepository(db)
 	programRepository := programRepo.NewProgramRepository(db)
+	articleRepository := articleRepo.NewArticleRepository(db)
+	eventRepository := eventRepo.NewEventRepository(db)
 
 	// Initialize email service
 	emailService := email.NewEmailService(
@@ -45,6 +53,8 @@ func main() {
 	// Initialize services
 	authSvc := authService.NewAuthService(authRepository, config.AppConfig.GoogleClientID, emailService, *config.AppConfig)
 	programSvc := programService.NewProgramService(programRepository)
+	articleSvc := articleService.NewArticleService(articleRepository)
+	eventSvc := eventService.NewEventService(eventRepository)
 
 	// Initialize OAuth2 configuration
 	oauth2Config := googleOAuth.NewOAuth2Config(
@@ -57,12 +67,14 @@ func main() {
 	authHdl := authHandler.NewAuthHandler(authSvc)
 	oauth2Hdl := authHandler.NewOAuth2Handler(authSvc, oauth2Config)
 	programHdl := programHandler.NewProgramHandler(programSvc)
+	articleHdl := articleHandler.NewArticleHandler(articleSvc)
+	eventHdl := eventHandler.NewEventHandler(eventSvc)
 
 	// Initialize Gin router
 	router := gin.Default()
 
 	// Setup routes
-	setupRoutes(router, authHdl, oauth2Hdl, programHdl)
+	setupRoutes(router, authHdl, oauth2Hdl, programHdl, articleHdl, eventHdl)
 
 	// Get server port from config
 	serverPort := config.AppConfig.ServerPort
@@ -79,7 +91,7 @@ func main() {
 }
 
 // setupRoutes configures all application routes
-func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler) {
+func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler, articleHandler *articleHandler.ArticleHandler, eventHandler *eventHandler.EventHandler) {
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -120,8 +132,33 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 			programs.DELETE("/:id", programHandler.DeleteProgram)
 		}
 
-		// - Events
-		// - Articles
+		// Article routes
+		articles := v1.Group("/articles")
+		{
+			articles.POST("", articleHandler.CreateArticle)
+			articles.GET("", articleHandler.GetAllArticles)
+			articles.GET("/:slug", articleHandler.GetArticleBySlug)
+			articles.PUT("/:slug", articleHandler.UpdateArticle)
+			articles.DELETE("/:slug", articleHandler.DeleteArticle)
+		}
+
+		// Event routes
+		events := v1.Group("/events")
+		{
+			events.POST("", eventHandler.CreateEvent)
+			events.GET("", eventHandler.GetAllEvents)
+			events.GET("/:id", eventHandler.GetEventByID)
+			events.PUT("/:id", eventHandler.UpdateEvent)
+			events.DELETE("/:id", eventHandler.DeleteEvent)
+			events.POST("/:id/join", eventHandler.JoinEvent)
+		}
+
+		// User routes
+		users := v1.Group("/users")
+		{
+			users.GET("/my-events", eventHandler.GetMyEvents)
+		}
+
 		// - Donations
 		// - Volunteers
 	}
