@@ -25,6 +25,7 @@ import (
 	volunteerService "github.com/Eksekutif-Mahasiswa-UB/terra-server/internal/volunteer/service"
 	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/email"
 	googleOAuth "github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/google"
+	"github.com/Eksekutif-Mahasiswa-UB/terra-server/pkg/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -102,9 +103,9 @@ func main() {
 	}
 }
 
-// setupRoutes configures all application routes
+// setupRoutes configures all application routes with proper authentication and authorization
 func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth2Handler *authHandler.OAuth2Handler, programHandler *programHandler.ProgramHandler, articleHandler *articleHandler.ArticleHandler, eventHandler *eventHandler.EventHandler, volunteerHandler *volunteerHandler.VolunteerHandler, donationHandler *donationHandler.DonationHandler) {
-	// Health check endpoint
+	// Health check endpoint (Public)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "ok",
@@ -112,7 +113,7 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 		})
 	})
 
-	// OAuth2 routes (outside /api/v1 for cleaner URLs)
+	// OAuth2 routes (Public - outside /api/v1 for cleaner URLs)
 	auth := router.Group("/auth")
 	{
 		auth.GET("/google/login", oauth2Handler.HandleGoogleLogin)
@@ -122,72 +123,122 @@ func setupRoutes(router *gin.Engine, authHandler *authHandler.AuthHandler, oauth
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
-		// Authentication routes
-		authV1 := v1.Group("/auth")
+		// ========== PUBLIC ROUTES (No Authentication Required) ==========
+
+		// Public Authentication routes
+		authPublic := v1.Group("/auth")
 		{
-			authV1.POST("/register", authHandler.Register)
-			authV1.POST("/login", authHandler.Login)
-			authV1.POST("/login/google", authHandler.LoginWithGoogle)
-			authV1.POST("/refresh", authHandler.RefreshToken)
-			authV1.POST("/logout", authHandler.Logout)
-			authV1.POST("/forgot-password", authHandler.ForgotPassword)
-			authV1.POST("/reset-password", authHandler.ResetPassword)
+			authPublic.POST("/register", authHandler.Register)
+			authPublic.POST("/login", authHandler.Login)
+			authPublic.POST("/login/google", authHandler.LoginWithGoogle)
+			authPublic.POST("/forgot-password", authHandler.ForgotPassword)
+			authPublic.POST("/reset-password", authHandler.ResetPassword)
 		}
 
-		// Program routes
-		programs := v1.Group("/programs")
+		// Public Program routes
+		programsPublic := v1.Group("/programs")
 		{
-			programs.POST("", programHandler.CreateProgram)
-			programs.GET("", programHandler.GetAllPrograms)
-			programs.GET("/:id", programHandler.GetProgramByID)
-			programs.PUT("/:id", programHandler.UpdateProgram)
-			programs.DELETE("/:id", programHandler.DeleteProgram)
+			programsPublic.GET("", programHandler.GetAllPrograms)
+			programsPublic.GET("/:id", programHandler.GetProgramByID)
 		}
 
-		// Article routes
-		articles := v1.Group("/articles")
+		// Public Article routes
+		articlesPublic := v1.Group("/articles")
 		{
-			articles.POST("", articleHandler.CreateArticle)
-			articles.GET("", articleHandler.GetAllArticles)
-			articles.GET("/:slug", articleHandler.GetArticleBySlug)
-			articles.PUT("/:slug", articleHandler.UpdateArticle)
-			articles.DELETE("/:slug", articleHandler.DeleteArticle)
+			articlesPublic.GET("", articleHandler.GetAllArticles)
+			articlesPublic.GET("/:slug", articleHandler.GetArticleBySlug)
 		}
 
-		// Event routes
-		events := v1.Group("/events")
+		// Public Event routes
+		eventsPublic := v1.Group("/events")
 		{
-			events.POST("", eventHandler.CreateEvent)
-			events.GET("", eventHandler.GetAllEvents)
-			events.GET("/:id", eventHandler.GetEventByID)
-			events.PUT("/:id", eventHandler.UpdateEvent)
-			events.DELETE("/:id", eventHandler.DeleteEvent)
-			events.POST("/:id/join", eventHandler.JoinEvent)
+			eventsPublic.GET("", eventHandler.GetAllEvents)
+			eventsPublic.GET("/:id", eventHandler.GetEventByID)
 		}
 
-		// User routes
-		users := v1.Group("/users")
+		// ========== AUTHENTICATED USER ROUTES (Auth Required) ==========
+
+		authRequired := v1.Group("")
+		authRequired.Use(middleware.AuthMiddleware())
 		{
-			users.GET("/my-events", eventHandler.GetMyEvents)
-			users.GET("/my-donations", donationHandler.GetMyDonations)
+			// Authenticated Auth routes
+			authAuth := authRequired.Group("/auth")
+			{
+				authAuth.POST("/refresh", authHandler.RefreshToken)
+				authAuth.POST("/logout", authHandler.Logout)
+			}
+
+			// User-specific routes
+			users := authRequired.Group("/users")
+			{
+				users.GET("/my-events", eventHandler.GetMyEvents)
+				users.GET("/my-donations", donationHandler.GetMyDonations)
+			}
+
+			// Event participation (User)
+			eventsAuth := authRequired.Group("/events")
+			{
+				eventsAuth.POST("/:id/join", eventHandler.JoinEvent)
+			}
+
+			// Volunteer application (User)
+			volunteersAuth := authRequired.Group("/volunteers")
+			{
+				volunteersAuth.POST("/apply", volunteerHandler.SubmitApplication)
+			}
+
+			// Donation creation (User)
+			donationsAuth := authRequired.Group("/donations")
+			{
+				donationsAuth.POST("", donationHandler.CreateDonation)
+			}
 		}
 
-		// Volunteer routes
-		volunteers := v1.Group("/volunteers")
-		{
-			volunteers.POST("/apply", volunteerHandler.SubmitApplication)
-			volunteers.GET("", volunteerHandler.GetAllApplications)
-			volunteers.GET("/:id", volunteerHandler.GetApplicationByID)
-			volunteers.PUT("/:id/status", volunteerHandler.UpdateApplicationStatus)
-		}
+		// ========== ADMIN ROUTES (Auth + Admin Role Required) ==========
 
-		// Donation routes
-		donations := v1.Group("/donations")
+		adminRequired := v1.Group("")
+		adminRequired.Use(middleware.AuthMiddleware())
+		adminRequired.Use(middleware.AdminMiddleware())
 		{
-			donations.POST("", donationHandler.CreateDonation)
-			donations.GET("", donationHandler.GetAllDonations)
-			donations.GET("/:id", donationHandler.GetDonationByID)
-			donations.PUT("/:id/status", donationHandler.UpdateDonationStatus)
+			// Admin Program routes
+			programsAdmin := adminRequired.Group("/programs")
+			{
+				programsAdmin.POST("", programHandler.CreateProgram)
+				programsAdmin.PUT("/:id", programHandler.UpdateProgram)
+				programsAdmin.DELETE("/:id", programHandler.DeleteProgram)
+			}
+
+			// Admin Article routes
+			articlesAdmin := adminRequired.Group("/articles")
+			{
+				articlesAdmin.POST("", articleHandler.CreateArticle)
+				articlesAdmin.PUT("/:slug", articleHandler.UpdateArticle)
+				articlesAdmin.DELETE("/:slug", articleHandler.DeleteArticle)
+			}
+
+			// Admin Event routes
+			eventsAdmin := adminRequired.Group("/events")
+			{
+				eventsAdmin.POST("", eventHandler.CreateEvent)
+				eventsAdmin.PUT("/:id", eventHandler.UpdateEvent)
+				eventsAdmin.DELETE("/:id", eventHandler.DeleteEvent)
+			}
+
+			// Admin Volunteer routes
+			volunteersAdmin := adminRequired.Group("/volunteers")
+			{
+				volunteersAdmin.GET("", volunteerHandler.GetAllApplications)
+				volunteersAdmin.GET("/:id", volunteerHandler.GetApplicationByID)
+				volunteersAdmin.PUT("/:id/status", volunteerHandler.UpdateApplicationStatus)
+			}
+
+			// Admin Donation routes
+			donationsAdmin := adminRequired.Group("/donations")
+			{
+				donationsAdmin.GET("", donationHandler.GetAllDonations)
+				donationsAdmin.GET("/:id", donationHandler.GetDonationByID)
+				donationsAdmin.PUT("/:id/status", donationHandler.UpdateDonationStatus)
+			}
 		}
 	}
 }
